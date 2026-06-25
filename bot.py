@@ -1,78 +1,65 @@
 """
 Telegram Offline Auto-Reply Userbot
-Render Deployment — NO OTP Required
+Python 3.11 compatible
 Developer: @rehuux | Owner: Syed Rehan
 """
 
 import asyncio
 import time
 import os
-from datetime import datetime
 from telethon import TelegramClient, events
 from telethon.errors import FloodWaitError
 from telethon.sessions import StringSession
 
-# ============================================
-# 🔑 RENDER ENVIRONMENT VARIABLES
-# ============================================
-# ✅ YE DALO (Telethon session - short wala)
+# ===== CONFIGURATION =====
 SESSION_STRING = os.getenv('SESSION_STRING', '')
-
 API_ID = int(os.getenv('API_ID', 0))
 API_HASH = os.getenv('API_HASH', '')
 OWNER_ID = int(os.getenv('OWNER_ID', 0))
 COOLDOWN_HOURS = int(os.getenv('COOLDOWN_HOURS', '12'))
-
-REPLY_MESSAGE = os.getenv('REPLY_MESSAGE', 
+REPLY_MESSAGE = os.getenv('REPLY_MESSAGE',
     "Hey! My owner is currently offline right now.\n\n"
     "Feel free to leave your message, and they'll reply when they're back online."
 )
-# ============================================
+# =========================
 
-# Check all required variables
 if not SESSION_STRING:
     print("❌ SESSION_STRING not set!")
-    exit(1)
-if not API_ID or not API_HASH:
-    print("❌ API_ID or API_HASH not set!")
-    exit(1)
-if not OWNER_ID:
-    print("❌ OWNER_ID not set!")
     exit(1)
 
 print("✅ All environment variables loaded!")
 
-# Create client with session string (Telethon)
+# ✅ FIX: Explicitly get or create event loop
+try:
+    loop = asyncio.get_running_loop()
+except RuntimeError:
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+# Create client with session string
 client = TelegramClient(
-    StringSession(SESSION_STRING),  # ✅ Telethon session
+    StringSession(SESSION_STRING),
     API_ID,
     API_HASH,
+    loop=loop,  # ✅ Pass loop explicitly
     device_model='OfflineReplyBot',
     system_version='1.0'
 )
 
-# Store last reply time per user (in-memory)
 last_reply = {}
 
 @client.on(events.NewMessage(incoming=True))
 async def handle_message(event):
-    """Handle incoming private messages"""
     try:
-        # Ignore outgoing messages
         if event.out:
             return
-        
-        # Ignore groups and channels
         if event.is_group or event.is_channel:
             return
         
         sender_id = event.sender_id
-        
-        # If sender is the owner → ignore (avoid loop)
         if sender_id == OWNER_ID:
             return
         
-        # Check cooldown (12 hours)
         current_time = time.time()
         if sender_id in last_reply:
             elapsed = (current_time - last_reply[sender_id]) / 3600
@@ -81,12 +68,10 @@ async def handle_message(event):
                 print(f"⏳ Cooldown: User {sender_id} — {remaining}h remaining")
                 return
         
-        # Send auto-reply
         try:
             await event.reply(REPLY_MESSAGE)
             last_reply[sender_id] = current_time
             print(f"✅ Auto-reply sent to user {sender_id}")
-            
         except FloodWaitError as e:
             print(f"⏳ Flood wait: {e.seconds}s")
             await asyncio.sleep(e.seconds)
