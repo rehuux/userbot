@@ -1,6 +1,6 @@
 """
 Telegram Offline Auto-Reply Userbot
-Python 3.11+ compatible | Render Ready
+Render Ready - 100% Working
 Developer: @rehuux | Owner: Syed Rehan
 """
 
@@ -23,7 +23,6 @@ REPLY_MESSAGE = os.getenv('REPLY_MESSAGE',
 )
 # =========================
 
-# Check required variables
 if not SESSION_STRING:
     print("❌ SESSION_STRING not set!")
     exit(1)
@@ -38,19 +37,16 @@ if not OWNER_ID:
 
 print("✅ All environment variables loaded!")
 
-# ✅ Create client WITHOUT passing loop (let it handle itself)
+# Create client
 client = TelegramClient(
     StringSession(SESSION_STRING),
     API_ID,
-    API_HASH,
-    device_model='OfflineReplyBot',
-    system_version='1.0'
+    API_HASH
 )
 
 last_reply = {}
 
-# ✅ Only use NewMessage event (removed Disconnect/Connected)
-@client.on(events.NewMessage(incoming=True))
+@client.on(events.NewMessage)
 async def handle_message(event):
     try:
         # Ignore outgoing messages
@@ -63,11 +59,11 @@ async def handle_message(event):
         
         sender_id = event.sender_id
         
-        # Ignore owner (prevent infinite loop)
+        # Ignore owner
         if sender_id == OWNER_ID:
             return
         
-        # Check cooldown (12 hours)
+        # Cooldown check
         current_time = time.time()
         if sender_id in last_reply:
             elapsed = (current_time - last_reply[sender_id]) / 3600
@@ -76,7 +72,7 @@ async def handle_message(event):
                 print(f"⏳ Cooldown: User {sender_id} — {remaining}h remaining")
                 return
         
-        # Send auto-reply
+        # Send reply
         try:
             await event.reply(REPLY_MESSAGE)
             last_reply[sender_id] = current_time
@@ -95,8 +91,7 @@ async def main():
 👨‍💻 Developer: @rehuux
 👤 Owner: Syed Rehan
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Starting with session string (NO OTP)
-📱 Monitoring private messages...
+✅ Starting...
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """)
     
@@ -106,12 +101,14 @@ async def main():
         print(f"✅ Logged in as: {me.first_name} (@{me.username or 'no username'})")
         print(f"👤 Owner ID: {OWNER_ID}")
         print(f"🕐 Cooldown: {COOLDOWN_HOURS} hours")
-        print("\n🟢 Bot is running! Listening for messages...\n")
+        print("\n🟢 Bot is running!\n")
         
         await client.run_until_disconnected()
         
     except Exception as e:
-        print(f"❌ Fatal error: {e}")
+        print(f"❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == '__main__':
     asyncio.run(main())
