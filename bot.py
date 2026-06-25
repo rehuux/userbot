@@ -1,6 +1,6 @@
 """
 Telegram Offline Auto-Reply Userbot
-Python 3.11 compatible
+Python 3.11+ compatible | Render Ready
 Developer: @rehuux | Owner: Syed Rehan
 """
 
@@ -23,43 +23,51 @@ REPLY_MESSAGE = os.getenv('REPLY_MESSAGE',
 )
 # =========================
 
+# Check required variables
 if not SESSION_STRING:
     print("❌ SESSION_STRING not set!")
     exit(1)
 
+if not API_ID or not API_HASH:
+    print("❌ API_ID or API_HASH not set!")
+    exit(1)
+
+if not OWNER_ID:
+    print("❌ OWNER_ID not set!")
+    exit(1)
+
 print("✅ All environment variables loaded!")
 
-# ✅ FIX: Explicitly get or create event loop
-try:
-    loop = asyncio.get_running_loop()
-except RuntimeError:
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-# Create client with session string
+# ✅ Create client WITHOUT passing loop (let it handle itself)
 client = TelegramClient(
     StringSession(SESSION_STRING),
     API_ID,
     API_HASH,
-    loop=loop,  # ✅ Pass loop explicitly
     device_model='OfflineReplyBot',
     system_version='1.0'
 )
 
 last_reply = {}
 
+# ✅ Only use NewMessage event (removed Disconnect/Connected)
 @client.on(events.NewMessage(incoming=True))
 async def handle_message(event):
     try:
+        # Ignore outgoing messages
         if event.out:
             return
+        
+        # Ignore groups and channels
         if event.is_group or event.is_channel:
             return
         
         sender_id = event.sender_id
+        
+        # Ignore owner (prevent infinite loop)
         if sender_id == OWNER_ID:
             return
         
+        # Check cooldown (12 hours)
         current_time = time.time()
         if sender_id in last_reply:
             elapsed = (current_time - last_reply[sender_id]) / 3600
@@ -68,6 +76,7 @@ async def handle_message(event):
                 print(f"⏳ Cooldown: User {sender_id} — {remaining}h remaining")
                 return
         
+        # Send auto-reply
         try:
             await event.reply(REPLY_MESSAGE)
             last_reply[sender_id] = current_time
@@ -78,14 +87,6 @@ async def handle_message(event):
             
     except Exception as e:
         print(f"⚠️ Error: {e}")
-
-@client.on(events.Disconnect)
-async def on_disconnect():
-    print("🔴 Disconnected from Telegram")
-
-@client.on(events.Connected)
-async def on_connect():
-    print("🟢 Connected to Telegram")
 
 async def main():
     print("""
